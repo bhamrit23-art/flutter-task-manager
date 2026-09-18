@@ -1,0 +1,26 @@
+2026/09/18-08:27:31.586 4918 Reusing MANIFEST C:\Users\khana\AppData\Local\Temp\flutter_tools.1d2e9d7c\flutter_tools_chrome_device.33d97670\Default\IndexedDB\http_localhost_59086.indexeddb.leveldb/MANIFEST-000001
+2026/09/18-08:27:31.587 4918 Recovering log #4
+2026/09/18-08:27:31.588 4918 Reusing old log C:\Users\khana\AppData\Local\Temp\flutter_tools.1d2e9d7c\flutter_tools_chrome_device.33d97670\Default\IndexedDB\http_localhost_59086.indexeddb.leveldb/000004.log 
+2026/09/18-08:27:31.598 3ce8 Level-0 table #8: started
+2026/09/18-08:27:31.603 3ce8 Level-0 table #8: 2084 bytes OK
+2026/09/18-08:27:31.607 3ce8 Delete type=0 #4
+2026/09/18-08:27:31.608 4918 Manual compaction at level-0 from '\x00\x04\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x05\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/09/18-08:28:59.786 5d64 Level-0 table #10: started
+2026/09/18-08:28:59.788 5d64 Level-0 table #10: 371 bytes OK
+2026/09/18-08:28:59.789 5d64 Delete type=0 #7
+2026/09/18-08:28:59.790 5d64 Manual compaction at level-0 from (begin) .. (end); will stop at '\x00\x02\x01\x02\x01\x05\x00_\x00_\x00s\x00a\x00k' @ 163 : 1
+2026/09/18-08:28:59.790 5d64 Compacting 1@0 + 1@1 files
+2026/09/18-08:28:59.791 5d64 Generated table #11@0: 51 keys, 1138 bytes
+2026/09/18-08:28:59.791 5d64 Compacted 1@0 + 1@1 files => 1138 bytes
+2026/09/18-08:28:59.792 5d64 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/09/18-08:28:59.792 5d64 Delete type=2 #8
+2026/09/18-08:28:59.792 5d64 Delete type=2 #10
+2026/09/18-08:28:59.792 5d64 Manual compaction at level-0 from '\x00\x02\x01\x02\x01\x05\x00_\x00_\x00s\x00a\x00k' @ 163 : 1 .. (end); will stop at (end)
+2026/09/18-08:28:59.793 5d64 Manual compaction at level-1 from (begin) .. (end); will stop at '\x00\x03\x01\x02\x01-\x00[\x00D\x00E\x00F\x00A\x00U\x00L\x00T\x00]\x00!\x001\x00:\x001\x000\x000\x000\x000\x000\x000\x000\x000\x000\x000\x000\x00:\x00w\x00e\x00b\x00:\x00a\x00b\x00c\x00d\x00e\x00f\x001\x002\x003\x004\x005\x006\x007\x008\x009\x000' @ 134 : 1
+2026/09/18-08:28:59.793 5d64 Compacting 1@1 + 1@2 files
+2026/09/18-08:28:59.794 5d64 Generated table #12@1: 33 keys, 934 bytes
+2026/09/18-08:28:59.794 5d64 Compacted 1@1 + 1@2 files => 934 bytes
+2026/09/18-08:28:59.795 5d64 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/09/18-08:28:59.795 5d64 Delete type=2 #5
+2026/09/18-08:28:59.795 5d64 Delete type=2 #11
+2026/09/18-08:28:59.795 5d64 Manual compaction at level-1 from '\x00\x03\x01\x02\x01-\x00[\x00D\x00E\x00F\x00A\x00U\x00L\x00T\x00]\x00!\x001\x00:\x001\x000\x000\x000\x000\x000\x000\x000\x000\x000\x000\x000\x00:\x00w\x00e\x00b\x00:\x00a\x00b\x00c\x00d\x00e\x00f\x001\x002\x003\x004\x005\x006\x007\x008\x009\x000' @ 134 : 1 .. (end); will stop at (end)
