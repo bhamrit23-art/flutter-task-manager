@@ -1,11 +1,11 @@
 {
-    "name": "firebase_task_manager",
-    "short_name": "firebase_task_manager",
+    "name": "Task Manager",
+    "short_name": "Tasks",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FAFAFA",
+    "theme_color": "#18181B",
+    "description": "A minimal task manager built with Flutter and Firebase.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

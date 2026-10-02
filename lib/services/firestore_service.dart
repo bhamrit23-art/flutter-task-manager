@@ -1,146 +1,122 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
+
 import '../models/task_model.dart';
+import 'task_service.dart';
 
-class FirestoreService {
-  bool get isAvailable {
-    if (Firebase.apps.isEmpty) return false;
-    final apiKey = Firebase.app().options.apiKey;
-    return apiKey.isNotEmpty && !apiKey.contains('DemoApiKey');
-  }
-
+/// Tasks stored in Cloud Firestore under `users/{uid}/tasks/{taskId}`.
+class FirestoreTaskService implements TaskService {
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
   /// Helper reference to user's tasks collection: users/{uid}/tasks
-  CollectionReference _userTasksCollection(String userId) {
-    if (!isAvailable) {
-      throw Exception(
-        'Firebase Firestore is not configured for this app yet. Add your Firebase project setup to enable cloud tasks.',
-      );
-    }
-
+  CollectionReference<Map<String, dynamic>> _userTasksCollection(
+      String userId) {
     if (userId.isEmpty) {
-      throw Exception("User ID cannot be empty.");
+      throw const TaskFailure('You need to be signed in to manage tasks.');
     }
     return _firestore.collection('users').doc(userId).collection('tasks');
   }
 
-  /// CREATE: Add a new task for the authenticated user
-  Future<void> addTask({
-    required String userId,
-    required String title,
-    required String description,
-  }) async {
-    if (!isAvailable) {
-      throw Exception(
-        'Firebase Firestore is not configured for this app yet. Add your Firebase project setup to enable cloud tasks.',
-      );
-    }
-
-    try {
-      final docRef = _userTasksCollection(userId).doc();
-      final newTask = TaskModel(
-        id: docRef.id,
-        userId: userId,
-        title: title.trim(),
-        description: description.trim(),
-        isCompleted: false,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      await docRef.set(newTask.toFirestore());
-    } on FirebaseException catch (e) {
-      throw Exception("Firestore Error (${e.code}): ${e.message}");
-    } catch (e) {
-      throw Exception("Failed to create task: ${e.toString()}");
-    }
-  }
-
   /// READ: Real-time stream of user tasks ordered by creation date
-  Stream<List<TaskModel>> getTasksStream(String userId) {
-    if (!isAvailable) {
-      return const Stream.empty();
-    }
-
-    if (userId.isEmpty) {
-      return Stream.value([]);
-    }
-
+  @override
+  Stream<List<TaskModel>> watchTasks(String userId) {
     return _userTasksCollection(userId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => TaskModel.fromFirestore(doc)).toList();
+        .map((snapshot) => snapshot.docs.map(TaskModel.fromFirestore).toList())
+        .handleError((Object error) => throw _failureFor(error));
+  }
+
+  /// CREATE: Add a new task for the authenticated user
+  @override
+  Future<void> createTask(TaskModel task) {
+    return _write(() {
+      final collection = _userTasksCollection(task.userId);
+      final docRef =
+          task.id.isEmpty ? collection.doc() : collection.doc(task.id);
+      return docRef.set(task.copyWith(id: docRef.id).toFirestore());
     });
   }
 
-  /// UPDATE: Modify task title and description
-  Future<void> updateTask(TaskModel task) async {
-    if (!isAvailable) {
-      throw Exception(
-        'Firebase Firestore is not configured for this app yet. Add your Firebase project setup to enable cloud tasks.',
-      );
-    }
-
-    try {
-      final taskRef = _userTasksCollection(task.userId).doc(task.id);
-      await taskRef.update({
-        'title': task.title.trim(),
-        'description': task.description.trim(),
+  /// UPDATE: Modify the editable fields of a task
+  @override
+  Future<void> updateTask(TaskModel task) {
+    return _write(() {
+      return _userTasksCollection(task.userId).doc(task.id).update({
+        'title': task.title,
+        'description': task.description,
         'isCompleted': task.isCompleted,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'priority': task.priority.name,
+        'dueDate':
+            task.dueDate != null ? Timestamp.fromDate(task.dueDate!) : null,
+        'updatedAt': Timestamp.now(),
       });
-    } on FirebaseException catch (e) {
-      throw Exception("Firestore Error (${e.code}): ${e.message}");
-    } catch (e) {
-      throw Exception("Failed to update task: ${e.toString()}");
-    }
+    });
   }
 
   /// UPDATE: Toggle task completion status
-  Future<void> toggleTaskStatus({
+  @override
+  Future<void> setCompleted({
     required String userId,
     required String taskId,
     required bool isCompleted,
-  }) async {
-    if (!isAvailable) {
-      throw Exception(
-        'Firebase Firestore is not configured for this app yet. Add your Firebase project setup to enable cloud tasks.',
-      );
-    }
-
-    try {
-      final taskRef = _userTasksCollection(userId).doc(taskId);
-      await taskRef.update({
+  }) {
+    return _write(() {
+      return _userTasksCollection(userId).doc(taskId).update({
         'isCompleted': isCompleted,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': Timestamp.now(),
       });
+    });
+  }
+
+  /// DELETE: Delete one or more task documents in a single batch
+  @override
+  Future<void> deleteTasks({
+    required String userId,
+    required List<String> taskIds,
+  }) {
+    return _write(() {
+      final collection = _userTasksCollection(userId);
+      final batch = _firestore.batch();
+      for (final taskId in taskIds) {
+        batch.delete(collection.doc(taskId));
+      }
+      return batch.commit();
+    });
+  }
+
+  /// Runs a write and converts Firebase errors into [TaskFailure]s.
+  ///
+  /// Firestore applies writes to its local cache straight away but only
+  /// completes the future once the server confirms. While offline that never
+  /// happens, so after a short wait the write is treated as queued.
+  Future<void> _write(Future<void> Function() action) async {
+    try {
+      await action().timeout(const Duration(seconds: 8), onTimeout: () {});
     } on FirebaseException catch (e) {
-      throw Exception("Firestore Error (${e.code}): ${e.message}");
-    } catch (e) {
-      throw Exception("Failed to toggle task status: ${e.toString()}");
+      throw _failureFor(e);
     }
   }
 
-  /// DELETE: Delete a task document
-  Future<void> deleteTask({
-    required String userId,
-    required String taskId,
-  }) async {
-    if (!isAvailable) {
-      throw Exception(
-        'Firebase Firestore is not configured for this app yet. Add your Firebase project setup to enable cloud tasks.',
-      );
+  TaskFailure _failureFor(Object error) {
+    if (error is TaskFailure) return error;
+    if (error is FirebaseException) {
+      switch (error.code) {
+        case 'permission-denied':
+          return const TaskFailure(
+            'Permission denied. Check the Firestore security rules for this project.',
+          );
+        case 'unavailable':
+          return const TaskFailure(
+            'Cannot reach the server. Please check your internet connection.',
+          );
+        default:
+          return TaskFailure(
+            error.message ?? 'Something went wrong (${error.code}).',
+          );
+      }
     }
-
-    try {
-      final taskRef = _userTasksCollection(userId).doc(taskId);
-      await taskRef.delete();
-    } on FirebaseException catch (e) {
-      throw Exception("Firestore Error (${e.code}): ${e.message}");
-    } catch (e) {
-      throw Exception("Failed to delete task: ${e.toString()}");
-    }
+    return const TaskFailure('Something went wrong. Please try again.');
   }
 }

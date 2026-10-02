@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+
 import '../models/task_model.dart';
+import '../theme/app_theme.dart';
+import '../utils/formatters.dart';
+
+enum _TaskAction { edit, delete }
 
 class TaskCard extends StatelessWidget {
   final TaskModel task;
-  final ValueChanged<bool?> onToggleCompleted;
+  final ValueChanged<bool> onToggleCompleted;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -19,153 +23,159 @@ class TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final scheme = theme.colorScheme;
+    final done = task.isCompleted;
+    final dueDate = task.dueDate;
 
-    final String formattedDate = task.createdAt != null
-        ? DateFormat('MMM dd, yyyy • hh:mm a').format(task.createdAt!)
-        : 'Recently';
-
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 250),
-      opacity: task.isCompleted ? 0.65 : 1.0,
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        clipBehavior: Clip.antiAlias,
-        child: Container(
-          decoration: BoxDecoration(
-            border: task.isCompleted
-                ? Border(
-                    left: BorderSide(
-                      color: theme.colorScheme.secondary,
-                      width: 5,
-                    ),
-                  )
-                : null,
-          ),
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onEdit,
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Completion Checkbox
-                  Transform.scale(
-                    scale: 1.1,
-                    child: Checkbox(
-                      value: task.isCompleted,
-                      onChanged: onToggleCompleted,
-                      activeColor: theme.colorScheme.secondary,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Title & Description
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          task.title,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            decoration: task.isCompleted
-                                ? TextDecoration.lineThrough
-                                : TextDecoration.none,
-                            decorationThickness: 2.0,
-                            color: task.isCompleted
-                                ? (isDark ? Colors.grey[400] : Colors.grey[600])
-                                : theme.textTheme.bodyLarge?.color,
-                          ),
-                        ),
-                        if (task.description.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            task.description,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isDark ? Colors.grey[400] : Colors.grey[700],
-                              height: 1.3,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  // Action buttons (Edit & Delete)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined),
-                        color: theme.colorScheme.primary,
-                        tooltip: 'Edit Task',
-                        onPressed: onEdit,
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        color: theme.colorScheme.error,
-                        tooltip: 'Delete Task',
-                        onPressed: onDelete,
-                      ),
-                    ],
-                  ),
-                ],
+              // Completion Checkbox
+              Transform.scale(
+                scale: 1.2,
+                child: Checkbox(
+                  value: done,
+                  onChanged: (value) => onToggleCompleted(value ?? false),
+                ),
               ),
-              const Divider(height: 20),
-              // Created Date & Status Pill
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
+              // Title, description and details
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(2, 12, 0, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.access_time_rounded,
-                        size: 14,
-                        color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        formattedDate,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
+                        style: theme.textTheme.titleMedium!.copyWith(
+                          height: 1.5,
+                          color:
+                              done ? scheme.onSurfaceVariant : scheme.onSurface,
+                          decoration: done
+                              ? TextDecoration.lineThrough
+                              : TextDecoration.none,
+                          decorationColor: scheme.onSurfaceVariant,
                         ),
+                        child: Text(
+                          task.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (task.description.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          task.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 14,
+                        runSpacing: 6,
+                        children: [
+                          _Detail(
+                            label: task.priority.label,
+                            leading: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: AppTheme.priorityColor(
+                                  task.priority,
+                                  theme.brightness,
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                          if (dueDate != null)
+                            _Detail(
+                              label: task.isOverdue
+                                  ? 'Overdue · ${formatDueDate(dueDate)}'
+                                  : 'Due ${formatDueDate(dueDate)}',
+                              color: task.isOverdue ? scheme.error : null,
+                              leading: Icon(
+                                Icons.event_outlined,
+                                size: 14,
+                                color: task.isOverdue
+                                    ? scheme.error
+                                    : scheme.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
                       ),
                     ],
                   ),
-                  if (task.isCompleted)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.secondary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.check_circle_outline,
-                            size: 12,
-                            color: theme.colorScheme.secondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            "Completed",
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: theme.colorScheme.secondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                ),
+              ),
+              // Edit & Delete
+              PopupMenuButton<_TaskAction>(
+                tooltip: 'Task options',
+                icon: Icon(Icons.more_horiz, color: scheme.onSurfaceVariant),
+                onSelected: (action) {
+                  switch (action) {
+                    case _TaskAction.edit:
+                      onEdit();
+                    case _TaskAction.delete:
+                      onDelete();
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: _TaskAction.edit,
+                    child: Text('Edit'),
+                  ),
+                  PopupMenuItem(
+                    value: _TaskAction.delete,
+                    child:
+                        Text('Delete', style: TextStyle(color: scheme.error)),
+                  ),
                 ],
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A small icon-and-label pair in the footer of a task card.
+class _Detail extends StatelessWidget {
+  final Widget leading;
+  final String label;
+  final Color? color;
+
+  const _Detail({required this.leading, required this.label, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        leading,
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: color ?? theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

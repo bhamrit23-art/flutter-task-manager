@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/auth_provider.dart';
-import '../../widgets/loading_widget.dart';
+import '../../utils/validators.dart';
+import '../../widgets/auth_layout.dart';
+import '../../widgets/error_message.dart';
+import '../../widgets/primary_button.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -24,23 +28,22 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _submitLogin() async {
+  void _submitLogin() {
     if (!_formKey.currentState!.validate()) return;
 
-    final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.signIn(
-      email: _emailController.text,
-      password: _passwordController.text,
-    );
+    // On success the auth gate in main.dart swaps this screen for HomeScreen;
+    // on failure the provider's error message is shown above the button.
+    context.read<AuthProvider>().signIn(
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
+  }
 
-    if (!success && mounted && authProvider.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(authProvider.errorMessage!),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
-    }
+  void _openSignUp() {
+    context.read<AuthProvider>().clearError();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const SignUpScreen()),
+    );
   }
 
   @override
@@ -48,138 +51,93 @@ class _LoginScreenState extends State<LoginScreen> {
     final authProvider = context.watch<AuthProvider>();
     final theme = Theme.of(context);
 
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // App Icon / Logo
-                  Icon(
-                    Icons.check_circle_outline_rounded,
-                    size: 80,
-                    color: theme.colorScheme.primary,
+    return AuthLayout(
+      title: 'Welcome back',
+      subtitle: 'Sign in to pick up where you left off.',
+      children: [
+        Form(
+          key: _formKey,
+          child: AutofillGroup(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Email Field
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.email],
+                  autocorrect: false,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon: Icon(Icons.mail_outline),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    "Welcome Back",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Sign in to manage your tasks efficiently",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
-                    ),
-                  ),
-                  const SizedBox(height: 36),
+                  validator: Validators.email,
+                ),
+                const SizedBox(height: 14),
 
-                  // Email Field
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: "Email Address",
-                      prefixIcon: Icon(Icons.email_outlined),
-                      hintText: "example@domain.com",
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return "Please enter your email address";
-                      }
-                      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                      if (!emailRegex.hasMatch(value.trim())) {
-                        return "Please enter a valid email address";
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Password Field
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: "Password",
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
+                // Password Field
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const [AutofillHints.password],
+                  onFieldSubmitted: (_) => _submitLogin(),
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      tooltip:
+                          _obscurePassword ? 'Show password' : 'Hide password',
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
                       ),
+                      onPressed: () {
+                        setState(() => _obscurePassword = !_obscurePassword);
+                      },
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return "Please enter your password";
-                      }
-                      return null;
-                    },
                   ),
-                  const SizedBox(height: 28),
-
-                  // Submit Button or Loading Indicator
-                  if (authProvider.isLoading)
-                    const LoadingWidget(message: "Signing in...")
-                  else
-                    ElevatedButton(
-                      onPressed: _submitLogin,
-                      child: const Text("Sign In"),
-                    ),
-
-                  const SizedBox(height: 24),
-
-                  // Navigation to Sign Up
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        "Don't have an account?",
-                        style: TextStyle(
-                          color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          authProvider.clearError();
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const SignUpScreen(),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          "Sign Up",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                  validator: Validators.required('Please enter your password'),
+                ),
+              ],
             ),
           ),
         ),
-      ),
+
+        if (authProvider.errorMessage != null) ...[
+          const SizedBox(height: 16),
+          ErrorMessage(message: authProvider.errorMessage!),
+        ],
+        const SizedBox(height: 20),
+
+        PrimaryButton(
+          label: 'Sign in',
+          isLoading: authProvider.isLoading,
+          onPressed: _submitLogin,
+        ),
+        const SizedBox(height: 12),
+
+        // Navigation to Sign Up
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                "Don't have an account?",
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: authProvider.isLoading ? null : _openSignUp,
+              child: const Text('Create one'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

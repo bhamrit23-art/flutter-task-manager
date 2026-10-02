@@ -1,68 +1,45 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import '../services/auth_service.dart';
 
-class AppUser {
-  final String uid;
-  final String email;
-  final String displayName;
-
-  const AppUser({
-    required this.uid,
-    required this.email,
-    required this.displayName,
-  });
-}
+export '../services/auth_service.dart' show AppUser;
 
 class AuthProvider extends ChangeNotifier {
-  final AuthService _authService = AuthService();
+  AuthProvider(this._authService) {
+    _authSubscription = _authService.userChanges.listen(
+      _onUserChanged,
+      onError: (Object _) => _onUserChanged(null),
+    );
+  }
+
+  final AuthService _authService;
 
   AppUser? _user;
+  bool _isReady = false;
   bool _isLoading = false;
   String? _errorMessage;
-  StreamSubscription<User?>? _authSubscription;
+  StreamSubscription<AppUser?>? _authSubscription;
 
   AppUser? get user => _user;
   bool get isAuthenticated => _user != null;
+
+  /// False until the saved session has been checked, so the app can show a
+  /// splash instead of flashing the login screen at a signed-in user.
+  bool get isReady => _isReady;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  AuthProvider() {
-    final firebaseUser = _authService.currentUser;
-    if (firebaseUser != null) {
-      _user = AppUser(
-        uid: firebaseUser.uid,
-        email: firebaseUser.email ?? '',
-        displayName: firebaseUser.displayName ?? '',
-      );
-    }
-
-    if (_authService.isAvailable) {
-      _authSubscription = _authService.authStateChanges.listen((User? newUser) {
-        _user = newUser == null
-            ? null
-            : AppUser(
-                uid: newUser.uid,
-                email: newUser.email ?? '',
-                displayName: newUser.displayName ?? '',
-              );
-        notifyListeners();
-      });
-    }
-  }
-
-  void _setLoading(bool value) {
-    _isLoading = value;
-    notifyListeners();
-  }
-
-  void _setError(String? message) {
-    _errorMessage = message;
+  void _onUserChanged(AppUser? user) {
+    if (_isReady && user == _user) return;
+    _user = user;
+    _isReady = true;
     notifyListeners();
   }
 
   void clearError() {
+    if (_errorMessage == null) return;
     _errorMessage = null;
     notifyListeners();
   }
@@ -72,95 +49,62 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String password,
     required String displayName,
-  }) async {
-    _setLoading(true);
-    _setError(null);
-
-    if (!_authService.isAvailable) {
-      _user = AppUser(
-        uid: 'local-demo-user',
-        email: email.trim(),
-        displayName: displayName.trim(),
-      );
-      _setLoading(false);
-      return true;
-    }
-
-    try {
-      final credential = await _authService.signUpWithEmail(
+  }) {
+    return _authenticate(
+      () => _authService.signUp(
         email: email,
         password: password,
         displayName: displayName,
-      );
-      final firebaseUser = credential.user;
-      _user = firebaseUser == null
-          ? null
-          : AppUser(
-              uid: firebaseUser.uid,
-              email: firebaseUser.email ?? '',
-              displayName: firebaseUser.displayName ?? '',
-            );
-      _setLoading(false);
-      return true;
-    } catch (e) {
-      _setError(e.toString().replaceAll("Exception: ", ""));
-      _setLoading(false);
-      return false;
-    }
+      ),
+    );
   }
 
   /// Sign In logic
   Future<bool> signIn({
     required String email,
     required String password,
-  }) async {
-    _setLoading(true);
-    _setError(null);
+  }) {
+    return _authenticate(
+      () => _authService.signIn(email: email, password: password),
+    );
+  }
 
-    if (!_authService.isAvailable) {
-      _user = AppUser(
-        uid: 'local-demo-user',
-        email: email.trim(),
-        displayName: 'Task Manager User',
-      );
-      _setLoading(false);
-      return true;
-    }
+  Future<bool> _authenticate(Future<AppUser> Function() request) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
 
     try {
-      final credential = await _authService.signInWithEmail(
-        email: email,
-        password: password,
-      );
-      final firebaseUser = credential.user;
-      _user = firebaseUser == null
-          ? null
-          : AppUser(
-              uid: firebaseUser.uid,
-              email: firebaseUser.email ?? '',
-              displayName: firebaseUser.displayName ?? '',
-            );
-      _setLoading(false);
+      _user = await request();
+      _isReady = true;
       return true;
-    } catch (e) {
-      _setError(e.toString().replaceAll("Exception: ", ""));
-      _setLoading(false);
+    } on AuthFailure catch (failure) {
+      _errorMessage = failure.message;
       return false;
+    } catch (_) {
+      _errorMessage = 'Something went wrong. Please try again.';
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
   /// Sign Out logic
   Future<void> signOut() async {
-    _setLoading(true);
-    _setError(null);
+    // Clear the user first so listeners (the live task list) detach before the
+    // backend session ends, instead of seeing a permission error from it.
+    final previousUser = _user;
+    _user = null;
+    _errorMessage = null;
+    notifyListeners();
 
     try {
       await _authService.signOut();
-      _user = null;
-    } catch (e) {
-      _setError(e.toString().replaceAll("Exception: ", ""));
-    } finally {
-      _setLoading(false);
+    } on AuthFailure catch (failure) {
+      _user = previousUser;
+      _errorMessage = failure.message;
+      notifyListeners();
     }
   }
 

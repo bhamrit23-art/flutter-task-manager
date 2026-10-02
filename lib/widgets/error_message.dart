@@ -12,42 +12,42 @@ class ErrorMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final errorColor = Theme.of(context).colorScheme.error;
+    final scheme = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
       decoration: BoxDecoration(
-        color: errorColor.withValues(alpha: 0.1),
+        color: scheme.errorContainer,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: errorColor.withValues(alpha: 0.4),
-        ),
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.error_outline,
-            color: errorColor,
-            size: 28,
-          ),
-          const SizedBox(width: 12),
+          Icon(Icons.error_outline, color: scheme.onErrorContainer, size: 20),
+          const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: errorColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: scheme.onErrorContainer,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  height: 1.35,
+                ),
               ),
             ),
           ),
           if (onRetry != null)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              color: errorColor,
+            TextButton(
               onPressed: onRetry,
-            ),
+              style: TextButton.styleFrom(
+                foregroundColor: scheme.onErrorContainer,
+              ),
+              child: const Text('Retry'),
+            )
+          else
+            const SizedBox(width: 8),
         ],
       ),
     );
